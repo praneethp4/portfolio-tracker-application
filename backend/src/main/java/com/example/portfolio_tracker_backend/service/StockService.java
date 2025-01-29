@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static com.example.portfolio_tracker_backend.util.Constants.AVAILABLE_TICKERS;
 
@@ -23,7 +24,15 @@ public class StockService {
     public Double calculatePortfolioValue() {
         List<Stock> stocks = stockRepository.findAll();
         return stocks.stream()
-                .mapToDouble(stock -> stockPriceService.getStockPrice(stock.getTicker()) * stock.getQuantity())
+                .mapToDouble(stock -> {
+                    try {
+                        Double price = stockPriceService.getStockPrice(stock.getTicker());
+                        return (price != null ? price : 0.0) * stock.getQuantity();
+                    } catch (Exception e) {
+                        System.err.println("Error fetching stock price for " + stock.getTicker() + ": " + e.getMessage());
+                        return 0.0;
+                    }
+                })
                 .sum();
     }
     public void createRandomPortfolioForUser() {
@@ -46,5 +55,32 @@ public class StockService {
     public List<Stock> getAllStocks() {
         return stockRepository.findAll();
     }
+
+    public Stock getStockById(Long id) {
+        return stockRepository.findById(id).orElse(null);
+    }
+
+    public Stock updateStock(Long id, Stock stockDetails) {
+
+        Optional<Stock> existingStock = stockRepository.findById(id);
+        if (existingStock.isPresent()) {
+            Stock stock = existingStock.get();
+            stock.setName(stockDetails.getName());
+            stock.setTicker(stockDetails.getTicker());
+            stock.setQuantity(stockDetails.getQuantity());
+            stock.setBuyPrice(stockDetails.getBuyPrice());
+            return stockRepository.save(stock);
+        }
+        return null;
+    }
+
+    public boolean deleteStock(Long id) {
+        if (stockRepository.existsById(id)) {
+            stockRepository.deleteById(id);
+            return true;
+        }
+        return false;
+    }
+
 
 }
